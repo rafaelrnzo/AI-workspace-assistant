@@ -107,9 +107,13 @@ export const useTicketStore = create<TicketStore>((set) => ({
     const ticket = await api('/tickets/', {
       method: 'POST',
       body: JSON.stringify({
-        ...payload,
+        title: payload.title,
         description: payload.description || null,
+        ticket_type: payload.ticket_type,
+        complexity: payload.complexity,
         requester_name: payload.requester_name || null,
+        repository_path: payload.repository_path ?? null,
+        agent_provider: payload.agent_provider ?? null,
         auto_process: true,
       }),
     })

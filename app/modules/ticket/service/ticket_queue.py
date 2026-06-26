@@ -159,11 +159,17 @@ class TicketQueue:
         messages = await service.list_messages(ticket_id)
         conversation = "\n".join(f"{m.role}: {m.content}" for m in messages)
         if ticket.ticket_type == TicketType.QUESTION.value:
-            instruction = "Answer the user's backend/application question. Do not change code."
+            instruction = (
+                "Answer the user's question about this codebase. Do not change any code. "
+                "Read the relevant source files, find the answer, and respond with a complete "
+                "answer in one response. Do not say you are searching or will report back later — "
+                "finish the entire task now and give the final answer."
+            )
         else:
             instruction = (
                 "Work inside the configured repository only. Make the requested code change, "
-                "keep the scope focused, and summarize the result."
+                "keep the scope focused, and summarize the result. "
+                "Complete the entire task in one pass — do not defer or report intermediate progress."
             )
         return (
             f"{instruction}\n\n"

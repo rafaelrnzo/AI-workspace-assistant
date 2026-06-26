@@ -9,8 +9,11 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquareText,
+  MoreHorizontal,
+  Plus,
   RefreshCw,
   Send,
+  Settings,
   Sparkles,
   Table2,
   UserRound,
@@ -107,8 +110,9 @@ function App() {
     return tickets.filter((ticket) => ticket.requester_name === session.name)
   }, [session, tickets])
 
-  const selectedTicket =
-    visibleTickets.find((ticket) => ticket.id === selectedTicketId) ?? visibleTickets[0]
+  const selectedTicket = selectedTicketId
+    ? visibleTickets.find((ticket) => ticket.id === selectedTicketId)
+    : undefined
 
   useEffect(() => {
     if (!selectedTicket?.id) return
@@ -142,153 +146,198 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-muted/40 text-foreground">
-      <header className="flex shrink-0 items-center justify-between border-b bg-card px-4 py-3 shadow-sm md:px-6">
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/25">
-            {session.role === 'admin' ? <LayoutDashboard className="size-5" /> : <Sparkles className="size-5" />}
-          </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight">EL Assistant Desk</h1>
-            <p className="text-xs text-muted-foreground">
-              {session.role === 'admin' ? `${tickets.length} total tickets` : `${visibleTickets.length} chats`}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={session.role === 'admin' ? 'default' : 'secondary'}>
-            {session.role === 'admin' ? 'Admin' : session.name}
-          </Badge>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="size-4" />
-          </Button>
-        </div>
-      </header>
-
+    <div className="flex h-screen overflow-hidden text-foreground">
       {session.role === 'user' ? (
         <UserLayout
-          requesterName={session.name}
+          session={session}
           ticket={selectedTicket}
           tickets={visibleTickets}
           messages={messages[selectedTicket?.id ?? ''] ?? []}
+          onLogout={handleLogout}
         />
       ) : (
-        <section className="flex min-h-0 flex-1 gap-4 overflow-hidden p-4 md:p-6">
-          <div className="min-w-0 flex-1 overflow-auto">
-            <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex h-full flex-1 flex-col bg-muted/40">
+          <header className="flex shrink-0 items-center justify-between border-b bg-card px-4 py-3 shadow-sm md:px-6">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/25">
+                <LayoutDashboard className="size-5" />
+              </div>
               <div>
-                <h2 className="text-lg font-semibold">Ticket Queue</h2>
-                <p className="text-sm text-muted-foreground">
-                  Low/medium run by queue, hard waits for approval.
-                </p>
+                <h1 className="text-lg font-bold tracking-tight">EL Assistant Desk</h1>
+                <p className="text-xs text-muted-foreground">{tickets.length} total tickets</p>
               </div>
-              <TabsList>
-                <TabsTrigger active={adminView === 'kanban'} onClick={() => setAdminView('kanban')}>
-                  <KanbanSquare />
-                  Kanban
-                </TabsTrigger>
-                <TabsTrigger active={adminView === 'table'} onClick={() => setAdminView('table')}>
-                  <Table2 />
-                  Table
-                </TabsTrigger>
-              </TabsList>
             </div>
-            {adminView === 'kanban' ? (
-              <div className="grid gap-3 overflow-x-auto pb-2 md:grid-cols-3 xl:grid-cols-6">
-                {groupedTickets.map((group) => (
-                  <Card key={group.status} className="min-h-[620px] min-w-[210px] bg-muted/60 shadow-none">
-                    <CardHeader className="flex-row items-center justify-between space-y-0 p-3">
-                      <CardTitle className="text-sm">{STATUS_LABELS[group.status]}</CardTitle>
-                      <Badge variant="outline">{group.tickets.length}</Badge>
-                    </CardHeader>
-                    <CardContent className="grid gap-2 p-3 pt-0">
-                      {group.tickets.map((ticket) => (
-                        <TicketCard
-                          key={ticket.id}
-                          ticket={ticket}
-                          active={ticket.id === selectedTicket?.id}
-                          onSelect={() => setSelectedTicket(ticket.id)}
-                        />
-                      ))}
-                    </CardContent>
-                  </Card>
-                ))}
+            <div className="flex items-center gap-2">
+              <Badge variant="default">Admin</Badge>
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
+                <LogOut className="size-4" />
+              </Button>
+            </div>
+          </header>
+          <section className="flex min-h-0 flex-1 gap-4 overflow-hidden p-4 md:p-6">
+            <div className="min-w-0 flex-1 overflow-auto">
+              <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">Ticket Queue</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Low/medium run by queue, hard waits for approval.
+                  </p>
+                </div>
+                <TabsList>
+                  <TabsTrigger active={adminView === 'kanban'} onClick={() => setAdminView('kanban')}>
+                    <KanbanSquare />
+                    Kanban
+                  </TabsTrigger>
+                  <TabsTrigger active={adminView === 'table'} onClick={() => setAdminView('table')}>
+                    <Table2 />
+                    Table
+                  </TabsTrigger>
+                </TabsList>
               </div>
-            ) : (
-              <TicketTable
-                tickets={visibleTickets}
-                selectedId={selectedTicket?.id}
-                onSelect={setSelectedTicket}
+              {adminView === 'kanban' ? (
+                <div className="grid gap-3 overflow-x-auto pb-2 md:grid-cols-3 xl:grid-cols-6">
+                  {groupedTickets.map((group) => (
+                    <Card key={group.status} className="min-h-[620px] min-w-[210px] bg-muted/60 shadow-none">
+                      <CardHeader className="flex-row items-center justify-between space-y-0 p-3">
+                        <CardTitle className="text-sm">{STATUS_LABELS[group.status]}</CardTitle>
+                        <Badge variant="outline">{group.tickets.length}</Badge>
+                      </CardHeader>
+                      <CardContent className="grid gap-2 p-3 pt-0">
+                        {group.tickets.map((ticket) => (
+                          <TicketCard
+                            key={ticket.id}
+                            ticket={ticket}
+                            active={ticket.id === selectedTicket?.id}
+                            onSelect={() => setSelectedTicket(ticket.id)}
+                          />
+                        ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <TicketTable
+                  tickets={visibleTickets}
+                  selectedId={selectedTicket?.id}
+                  onSelect={setSelectedTicket}
+                />
+              )}
+            </div>
+            <div className="hidden w-[430px] shrink-0 xl:block">
+              <TicketInspector
+                ticket={selectedTicket}
+                messages={messages[selectedTicket?.id ?? ''] ?? []}
+                onApprove={() => selectedTicket && approveTicket(selectedTicket.id)}
+                onReject={() => selectedTicket && rejectTicket(selectedTicket.id)}
+                onRetry={() => selectedTicket && retryTicket(selectedTicket.id)}
               />
-            )}
-          </div>
-
-          <div className="hidden w-[430px] shrink-0 xl:block">
-            <TicketInspector
-              ticket={selectedTicket}
-              messages={messages[selectedTicket?.id ?? ''] ?? []}
-              onApprove={() => selectedTicket && approveTicket(selectedTicket.id)}
-              onReject={() => selectedTicket && rejectTicket(selectedTicket.id)}
-              onRetry={() => selectedTicket && retryTicket(selectedTicket.id)}
-            />
-          </div>
-        </section>
+            </div>
+          </section>
+        </div>
       )}
     </div>
   )
 }
 
 function UserLayout({
-  requesterName,
+  session,
   ticket,
   tickets,
   messages,
+  onLogout,
 }: {
-  requesterName: string
+  session: Session
   ticket: Ticket | undefined
   tickets: Ticket[]
   messages: TicketMessage[]
+  onLogout: () => void
 }) {
+  const setSelectedTicket = useTicketStore((state) => state.setSelectedTicket)
   return (
-    <div className="flex min-h-0 flex-1 gap-4 overflow-hidden p-4 md:p-6">
-      {/* Left column: composer + chat list */}
-      <div className="flex w-[380px] shrink-0 flex-col gap-4 overflow-auto lg:w-[420px]">
-        <UserTicketComposer requesterName={requesterName} />
-        <Card className="min-h-0 flex-1 overflow-hidden">
-          <CardHeader className="py-3">
-            <CardTitle className="text-sm">Your Chats</CardTitle>
-          </CardHeader>
-          <CardContent className="overflow-auto p-0">
-            {tickets.length ? (
-              tickets.map((item) => (
-                <ChatListItem
-                  key={item.id}
-                  ticket={item}
-                  active={item.id === ticket?.id}
-                />
-              ))
-            ) : (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                No chats yet. Send a new request above.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Right column: chat panel — fills remaining space, no page scroll */}
-      {ticket ? (
-        <Card className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <ChatPanel ticket={ticket} messages={messages} />
-        </Card>
-      ) : (
-        <Card className="flex min-w-0 flex-1 items-center justify-center text-muted-foreground">
-          <div className="text-center">
-            <Sparkles className="mx-auto mb-3 size-10 opacity-30" />
-            <p className="text-sm">Select a chat or create a new one</p>
+    <div className="flex min-h-0 flex-1 overflow-hidden">
+      {/* ── Left sidebar: branding + chat history ── */}
+      <aside className="flex w-60 shrink-0 flex-col border-r bg-card">
+        {/* Brand */}
+        <div className="flex items-center gap-2.5 border-b px-4 py-3">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Sparkles className="size-4" />
           </div>
-        </Card>
+          <span className="text-sm font-bold tracking-tight">EL Assistant</span>
+        </div>
+
+        {/* Nav */}
+        <nav className="space-y-0.5 border-b px-2 py-2">
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/80"
+            onClick={() => setSelectedTicket(null)}
+          >
+            <Plus className="size-4" />
+            New Chat
+          </button>
+        </nav>
+
+        {/* History list */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-1">
+          <span className="text-xs font-semibold text-muted-foreground">History</span>
+          <span className="text-xs text-muted-foreground">{tickets.length}</span>
+        </div>
+        <div className="flex-1 overflow-auto px-2 pb-2">
+          {tickets.length ? (
+            tickets.map((item) => (
+              <ChatListItem
+                key={item.id}
+                ticket={item}
+                active={item.id === ticket?.id}
+              />
+            ))
+          ) : (
+            <p className="px-2 py-4 text-center text-xs text-muted-foreground">
+              No chats yet
+            </p>
+          )}
+        </div>
+
+        {/* User footer */}
+        <div className="flex items-center gap-2 border-t px-3 py-3">
+          <div className="flex size-8 items-center justify-center rounded-full bg-secondary text-sm font-semibold">
+            {session.name.charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{session.name}</p>
+          </div>
+          <Button variant="ghost" size="icon" className="size-7" onClick={onLogout}>
+            <LogOut className="size-3.5" />
+          </Button>
+        </div>
+      </aside>
+
+      {/* ── Center: chat area ── */}
+      {ticket ? (
+        <ChatPanel ticket={ticket} messages={messages} />
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center bg-muted/20">
+          <Sparkles className="mb-4 size-12 text-primary/20" />
+          <h2 className="text-xl font-semibold">Welcome to EL Assistant</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Configure your task on the right, then send a chat.
+          </p>
+        </div>
       )}
+
+      {/* ── Right sidebar: configuration ── */}
+      <aside className="flex w-72 shrink-0 flex-col border-l bg-card">
+        <div className="flex items-center justify-between border-b px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Settings className="size-4 text-muted-foreground" />
+            <span className="text-sm font-semibold">Configuration</span>
+          </div>
+          <MoreHorizontal className="size-4 text-muted-foreground" />
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          <UserTicketComposer requesterName={session.name} />
+        </div>
+      </aside>
     </div>
   )
 }
@@ -298,18 +347,18 @@ function ChatListItem({ ticket, active }: { ticket: Ticket; active: boolean }) {
   return (
     <button
       className={cn(
-        'flex w-full items-start gap-3 border-b px-4 py-3 text-left transition-colors hover:bg-accent',
+        'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent',
         active && 'bg-accent',
       )}
       onClick={() => setSelectedTicket(ticket.id)}
     >
+      <StatusDot status={ticket.status} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{ticket.title}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+        <p className="truncate text-xs text-muted-foreground">
           {projectNameFromPath(ticket.repository_path)}
         </p>
       </div>
-      <StatusDot status={ticket.status} />
     </button>
   )
 }
@@ -331,9 +380,9 @@ function ChatPanel({ ticket, messages }: { ticket: Ticket; messages: TicketMessa
   }
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col">
+    <section className="flex min-h-0 flex-1 flex-col bg-muted/20">
       {/* Chat header */}
-      <div className="flex shrink-0 items-center justify-between border-b bg-card px-5 py-3">
+      <div className="flex shrink-0 items-center justify-between border-b bg-card px-6 py-3">
         <div className="min-w-0">
           <h2 className="truncate text-base font-semibold">{ticket.title}</h2>
           <p className="text-xs text-muted-foreground">
@@ -344,8 +393,8 @@ function ChatPanel({ ticket, messages }: { ticket: Ticket; messages: TicketMessa
       </div>
 
       {/* Messages — scrollable, fills available space */}
-      <div className="flex-1 overflow-auto bg-muted/30 px-5 py-4">
-        <div className="mx-auto flex max-w-3xl flex-col gap-3">
+      <div className="flex-1 overflow-auto px-6 py-5">
+        <div className="mx-auto flex max-w-2xl flex-col gap-3">
           {messages.map((item) => (
             <MessageBubble key={item.id} message={item} />
           ))}
@@ -354,18 +403,19 @@ function ChatPanel({ ticket, messages }: { ticket: Ticket; messages: TicketMessa
       </div>
 
       {/* Input — pinned to bottom */}
-      <form className="flex shrink-0 items-center gap-2 border-t bg-card px-4 py-3" onSubmit={submit}>
-        <Input
-          className="flex-1"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          placeholder="Type your message..."
-        />
-        <Button type="submit" size="sm">
-          <Send className="size-4" />
-          Send
-        </Button>
-      </form>
+      <div className="shrink-0 border-t bg-card px-6 py-3">
+        <form className="mx-auto flex max-w-2xl items-center gap-2" onSubmit={submit}>
+          <Input
+            className="flex-1"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder="Type your message..."
+          />
+          <Button type="submit" size="icon" className="shrink-0">
+            <Send className="size-4" />
+          </Button>
+        </form>
+      </div>
     </section>
   )
 }
@@ -475,7 +525,7 @@ function UserTicketComposer({ requesterName }: { requesterName: string }) {
       complexity,
       requester_name: requesterName,
       repository_path: selectedProjectPath || undefined,
-      agent_provider: agentProvider || undefined,
+      agent_provider: agentProvider || undefined,  // ponytail: empty = Auto, backend picks via recommend_provider
     }
     await createTicket(payload)
     setTitle('')
@@ -483,16 +533,41 @@ function UserTicketComposer({ requesterName }: { requesterName: string }) {
   }
 
   return (
-    <form className="grid gap-3" onSubmit={submit}>
-      <Field label="Project">
-        <Select
-          value={selectedProjectPath}
-          onChange={(event) => setSelectedProjectPath(event.target.value)}
-          options={projectOptions}
-          disabled={!projectOptions.length}
-        />
-      </Field>
-      <div className="grid grid-cols-2 gap-2">
+    <form className="grid gap-4" onSubmit={submit}>
+      {/* Project list */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-xs font-semibold text-muted-foreground">Project Scope</span>
+          <span className="text-xs text-muted-foreground">{projectOptions.length}</span>
+        </div>
+        <div className="space-y-1">
+          {projectOptions.length ? (
+            projectOptions.map((proj) => (
+              <button
+                type="button"
+                key={proj.value}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent',
+                  selectedProjectPath === proj.value && 'bg-accent font-medium',
+                )}
+                onClick={() => setSelectedProjectPath(proj.value)}
+              >
+                <FolderGit2 className="size-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{proj.label}</span>
+                {selectedProjectPath === proj.value && (
+                  <Circle className="ml-auto size-2 shrink-0 fill-primary text-primary" />
+                )}
+              </button>
+            ))
+          ) : (
+            <p className="px-3 py-2 text-xs text-muted-foreground">No projects</p>
+          )}
+        </div>
+      </div>
+
+      {/* Settings */}
+      <div className="space-y-3 border-t pt-4">
+        <span className="text-xs font-semibold text-muted-foreground">Settings</span>
         <Field label="Type">
           <Select
             value={ticketType}
@@ -507,29 +582,35 @@ function UserTicketComposer({ requesterName }: { requesterName: string }) {
             options={COMPLEXITY_OPTIONS}
           />
         </Field>
+        <Field label="Agent Provider">
+          <Select
+            value={agentProvider}
+            onChange={(event) => setAgentProvider(event.target.value)}
+            options={PROVIDERS}
+          />
+        </Field>
       </div>
-      <Field label="Agent">
-        <Select
-          value={agentProvider}
-          onChange={(event) => setAgentProvider(event.target.value)}
-          options={PROVIDERS}
-        />
-      </Field>
-      <Field label="Title">
-        <Input value={title} onChange={(event) => setTitle(event.target.value)} required />
-      </Field>
-      <Field label="Message">
-        <Textarea
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          rows={4}
-          required
-        />
-      </Field>
-      <Button type="submit" size="sm">
-        <Send className="size-4" />
-        Send
-      </Button>
+
+      {/* New chat */}
+      <div className="space-y-3 border-t pt-4">
+        <span className="text-xs font-semibold text-muted-foreground">New Chat</span>
+        <Field label="Title">
+          <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Short summary" required />
+        </Field>
+        <Field label="Message">
+          <Textarea
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            rows={4}
+            placeholder="Describe your request..."
+            required
+          />
+        </Field>
+        <Button type="submit" className="w-full">
+          <Plus className="size-4" />
+          New Chat
+        </Button>
+      </div>
     </form>
   )
 }
