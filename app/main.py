@@ -1,12 +1,15 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.database import engine
 from app.exceptions import AppException
 from app.models.base import Base
+from app.modules.auth import router as auth_router
 from app.modules.project.api import router as project_router
 from app.modules.ticket.api.routes import router as ticket_router
 from app.modules.ticket.service.ticket_queue import ticket_queue
@@ -52,6 +55,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AI Assistant Code", lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth_router, prefix="/api")
 app.include_router(ticket_router, prefix="/api")
 app.include_router(project_router, prefix="/api")
 
@@ -59,3 +71,18 @@ app.include_router(project_router, prefix="/api")
 @app.exception_handler(AppException)
 async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
+
+
+from pathlib import Path
+from fastapi.responses import FileResponse
+
+_static_dir = Path(__file__).resolve().parent.parent / "static"
+if _static_dir.is_dir():
+    app.mount("/assets", StaticFiles(directory=_static_dir / "assets"), name="assets")
+
+    @app.get("/{path:path}")
+    async def serve_spa(path: str):
+        file = _static_dir / path
+        if file.is_file():
+            return FileResponse(file)
+        return FileResponse(_static_dir / "index.html")

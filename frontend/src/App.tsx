@@ -1,4 +1,5 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import Markdown from 'react-markdown'
 import {
   Bot,
   CheckCircle2,
@@ -9,12 +10,14 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquareText,
+  Moon,
   MoreHorizontal,
   Plus,
   RefreshCw,
   Send,
   Settings,
   Sparkles,
+  Sun,
   Table2,
   UserRound,
   XCircle,
@@ -35,6 +38,7 @@ import { Select } from '@/components/ui/select'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 import {
   type CreateTicketPayload,
   type Ticket,
@@ -43,15 +47,6 @@ import {
   type TicketType,
   useTicketStore,
 } from '@/stores/ticket-store'
-
-type SessionRole = 'user' | 'admin'
-type Session = {
-  role: SessionRole
-  name: string
-}
-
-const SESSION_KEY = 'ai-assistant-session'
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? 'admin'
 
 const STATUSES = ['review_required', 'queued', 'in_progress', 'completed', 'failed', 'pending']
 const STATUS_LABELS: Record<string, string> = {
@@ -80,8 +75,28 @@ const COMPLEXITY_OPTIONS = [
   { value: 'hard', label: 'Hard' },
 ]
 
+function ThemeToggle({ className }: { className?: string }) {
+  const [dark, setDark] = useState(() => {
+    const saved = localStorage.getItem('theme')
+    const prefersDark = saved ? saved === 'dark' : true
+    document.documentElement.classList.toggle('dark', prefersDark)
+    return prefersDark
+  })
+  const toggle = () => {
+    const next = !dark
+    document.documentElement.classList.toggle('dark', next)
+    localStorage.setItem('theme', next ? 'dark' : 'light')
+    setDark(next)
+  }
+  return (
+    <Button variant="ghost" size="icon" className={cn('size-8', className)} onClick={toggle}>
+      {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+    </Button>
+  )
+}
+
 function App() {
-  const [session, setSession] = useState<Session | null>(() => readSession())
+  const { user, logout, restore } = useAuthStore()
   const [adminView, setAdminView] = useState<'kanban' | 'table'>('kanban')
   const {
     tickets,
@@ -96,19 +111,21 @@ function App() {
     retryTicket,
   } = useTicketStore()
 
+  useEffect(() => { restore() }, [restore])
+
   useEffect(() => {
-    if (!session) return
+    if (!user) return
     fetchProjects()
     fetchTickets()
     const timer = window.setInterval(fetchTickets, 3000)
     return () => window.clearInterval(timer)
-  }, [fetchProjects, fetchTickets, session])
+  }, [fetchProjects, fetchTickets, user])
 
   const visibleTickets = useMemo(() => {
-    if (!session) return []
-    if (session.role === 'admin') return tickets
-    return tickets.filter((ticket) => ticket.requester_name === session.name)
-  }, [session, tickets])
+    if (!user) return []
+    if (user.role === 'admin') return tickets
+    return tickets.filter((ticket) => ticket.requester_name === user.name)
+  }, [user, tickets])
 
   const selectedTicket = selectedTicketId
     ? visibleTickets.find((ticket) => ticket.id === selectedTicketId)
@@ -130,26 +147,20 @@ function App() {
     [visibleTickets],
   )
 
-  const handleLogin = (nextSession: Session) => {
-    window.localStorage.setItem(SESSION_KEY, JSON.stringify(nextSession))
-    setSession(nextSession)
-  }
-
   const handleLogout = () => {
-    window.localStorage.removeItem(SESSION_KEY)
     setSelectedTicket(null)
-    setSession(null)
+    logout()
   }
 
-  if (!session) {
-    return <LoginScreen onLogin={handleLogin} />
+  if (!user) {
+    return <LoginScreen />
   }
 
   return (
     <div className="flex h-screen overflow-hidden text-foreground">
-      {session.role === 'user' ? (
+      {user.role === 'user' ? (
         <UserLayout
-          session={session}
+          user={user}
           ticket={selectedTicket}
           tickets={visibleTickets}
           messages={messages[selectedTicket?.id ?? ''] ?? []}
@@ -159,7 +170,7 @@ function App() {
         <div className="flex h-full flex-1 flex-col bg-muted/40">
           <header className="flex shrink-0 items-center justify-between border-b bg-card px-4 py-3 shadow-sm md:px-6">
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/25">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <LayoutDashboard className="size-5" />
               </div>
               <div>
@@ -168,6 +179,7 @@ function App() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <ThemeToggle />
               <Badge variant="default">Admin</Badge>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 <LogOut className="size-4" />
@@ -240,13 +252,13 @@ function App() {
 }
 
 function UserLayout({
-  session,
+  user,
   ticket,
   tickets,
   messages,
   onLogout,
 }: {
-  session: Session
+  user: { name: string; role: string }
   ticket: Ticket | undefined
   tickets: Ticket[]
   messages: TicketMessage[]
@@ -259,10 +271,11 @@ function UserLayout({
       <aside className="flex w-60 shrink-0 flex-col border-r bg-card">
         {/* Brand */}
         <div className="flex items-center gap-2.5 border-b px-4 py-3">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Sparkles className="size-4" />
           </div>
-          <span className="text-sm font-bold tracking-tight">EL Assistant</span>
+          <span className="flex-1 text-sm font-bold tracking-tight">EL Assistant</span>
+          <ThemeToggle />
         </div>
 
         {/* Nav */}
@@ -301,10 +314,10 @@ function UserLayout({
         {/* User footer */}
         <div className="flex items-center gap-2 border-t px-3 py-3">
           <div className="flex size-8 items-center justify-center rounded-full bg-secondary text-sm font-semibold">
-            {session.name.charAt(0).toUpperCase()}
+            {user.name.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{session.name}</p>
+            <p className="truncate text-sm font-medium">{user.name}</p>
           </div>
           <Button variant="ghost" size="icon" className="size-7" onClick={onLogout}>
             <LogOut className="size-3.5" />
@@ -335,7 +348,7 @@ function UserLayout({
           <MoreHorizontal className="size-4 text-muted-foreground" />
         </div>
         <div className="flex-1 overflow-auto p-4">
-          <UserTicketComposer requesterName={session.name} />
+          <UserTicketComposer requesterName={user.name} />
         </div>
       </aside>
     </div>
@@ -363,20 +376,53 @@ function ChatListItem({ ticket, active }: { ticket: Ticket; active: boolean }) {
   )
 }
 
+function TypingIndicator() {
+  return (
+    <div className="animate-fade-in flex max-w-[82%] items-center gap-1.5 rounded-2xl border border-border bg-card px-4 py-3">
+      <Bot className="mr-1 size-3.5 text-muted-foreground" />
+      <span className="typing-dot inline-block size-1.5 rounded-full bg-muted-foreground" />
+      <span className="typing-dot inline-block size-1.5 rounded-full bg-muted-foreground" />
+      <span className="typing-dot inline-block size-1.5 rounded-full bg-muted-foreground" />
+    </div>
+  )
+}
+
 function ChatPanel({ ticket, messages }: { ticket: Ticket; messages: TicketMessage[] }) {
   const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
   const sendMessage = useTicketStore((state) => state.sendMessage)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const seenIds = useRef(new Set<string>())
+
+  const newIds = useMemo(() => {
+    const fresh = new Set<string>()
+    for (const m of messages) {
+      if (!seenIds.current.has(m.id)) fresh.add(m.id)
+    }
+    return fresh
+  }, [messages])
+
+  useEffect(() => {
+    for (const m of messages) seenIds.current.add(m.id)
+  }, [messages])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.length])
+  }, [messages.length, sending])
+
+  const lastRole = messages.length ? messages[messages.length - 1].role : null
+  const isProcessing = sending || (
+    ['queued', 'in_progress', 'pending'].includes(ticket.status)
+    && lastRole !== 'assistant'
+  )
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (!message.trim()) return
+    setSending(true)
     await sendMessage(ticket.id, message.trim())
     setMessage('')
+    setSending(false)
   }
 
   return (
@@ -392,26 +438,28 @@ function ChatPanel({ ticket, messages }: { ticket: Ticket; messages: TicketMessa
         <StatusBadge status={ticket.status} />
       </div>
 
-      {/* Messages — scrollable, fills available space */}
+      {/* Messages */}
       <div className="flex-1 overflow-auto px-6 py-5">
-        <div className="mx-auto flex max-w-2xl flex-col gap-3">
+        <div className="mx-auto flex max-w-5xl flex-col gap-3">
           {messages.map((item) => (
-            <MessageBubble key={item.id} message={item} />
+            <MessageBubble key={item.id} message={item} isNew={newIds.has(item.id)} />
           ))}
+          {isProcessing && <TypingIndicator />}
           <div ref={bottomRef} />
         </div>
       </div>
 
-      {/* Input — pinned to bottom */}
+      {/* Input */}
       <div className="shrink-0 border-t bg-card px-6 py-3">
-        <form className="mx-auto flex max-w-2xl items-center gap-2" onSubmit={submit}>
+        <form className="mx-auto flex max-w-5xl items-center gap-2" onSubmit={submit}>
           <Input
             className="flex-1"
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             placeholder="Type your message..."
+            disabled={sending}
           />
-          <Button type="submit" size="icon" className="shrink-0">
+          <Button type="submit" size="icon" className="shrink-0" disabled={sending}>
             <Send className="size-4" />
           </Button>
         </form>
@@ -420,73 +468,100 @@ function ChatPanel({ ticket, messages }: { ticket: Ticket; messages: TicketMessa
   )
 }
 
-function LoginScreen({ onLogin }: { onLogin: (session: Session) => void }) {
-  const [role, setRole] = useState<SessionRole>('user')
+function LoginScreen() {
+  const [mode, setMode] = useState<'login' | 'register'>('login')
   const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [role, setRole] = useState<'user' | 'admin'>('user')
+  const { login, register, error, loading } = useAuthStore()
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
-    const cleanName = name.trim()
-    if (!cleanName) {
-      setError('Name is required.')
-      return
+    if (mode === 'login') {
+      await login(email.trim(), password)
+    } else {
+      await register(name.trim(), email.trim(), password, role)
     }
-    if (role === 'admin' && password !== ADMIN_PASSWORD) {
-      setError('Admin passphrase is incorrect.')
-      return
-    }
-    setError('')
-    onLogin({ role, name: cleanName })
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-linear-to-br from-primary/5 via-background to-primary/10 p-4">
+    <main className="relative grid min-h-screen place-items-center bg-background p-4">
+      <ThemeToggle className="absolute top-4 right-4" />
       <Card className="w-full max-w-md animate-fade-in shadow-lg">
         <CardHeader>
-          <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/25">
+          <div className="mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Bot className="size-6" />
           </div>
           <CardTitle className="text-xl">EL Assistant Desk</CardTitle>
-          <CardDescription>Login untuk memisahkan workspace user dan admin.</CardDescription>
+          <CardDescription>
+            {mode === 'login' ? 'Sign in to your account.' : 'Create a new account.'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form className="grid gap-4" onSubmit={submit}>
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger type="button" active={role === 'user'} onClick={() => setRole('user')}>
+              <TabsTrigger type="button" active={mode === 'login'} onClick={() => setMode('login')}>
                 <UserRound />
-                User
+                Login
               </TabsTrigger>
-              <TabsTrigger type="button" active={role === 'admin'} onClick={() => setRole('admin')}>
-                <LayoutDashboard />
-                Admin
+              <TabsTrigger type="button" active={mode === 'register'} onClick={() => setMode('register')}>
+                <Plus />
+                Register
               </TabsTrigger>
             </TabsList>
-            <div className="grid gap-2">
-              <Label htmlFor="name">{role === 'admin' ? 'Admin name' : 'FE/QA name'}</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={role === 'admin' ? 'Rafael' : 'Frontend Team'}
-              />
-            </div>
-            {role === 'admin' && (
+            {mode === 'register' && (
               <div className="grid gap-2">
-                <Label htmlFor="password">Admin passphrase</Label>
+                <Label htmlFor="name">Name</Label>
                 <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Default: admin"
+                  id="name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Your name"
+                  required
                 />
               </div>
             )}
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+            {mode === 'register' && (
+              <div className="grid gap-2">
+                <Label>Role</Label>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger type="button" active={role === 'user'} onClick={() => setRole('user')}>
+                    <UserRound />
+                    User
+                  </TabsTrigger>
+                  <TabsTrigger type="button" active={role === 'admin'} onClick={() => setRole('admin')}>
+                    <LayoutDashboard />
+                    Admin
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+            )}
             {error && <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full">
-              Login
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Loading...' : mode === 'login' ? 'Sign In' : 'Create Account'}
             </Button>
           </form>
         </CardContent>
@@ -615,22 +690,32 @@ function UserTicketComposer({ requesterName }: { requesterName: string }) {
   )
 }
 
-function MessageBubble({ message }: { message: TicketMessage }) {
+function MessageBubble({ message, isNew = false }: { message: TicketMessage; isNew?: boolean }) {
+  const animClass = isNew
+    ? message.role === 'user' ? 'animate-fade-in' : 'animate-stream-in'
+    : ''
   return (
     <article
       className={cn(
-        'animate-fade-in max-w-[82%] rounded-2xl px-4 py-2.5 text-sm shadow-sm',
+        'max-w-[82%] rounded-2xl px-4 py-2.5 text-sm shadow-sm',
+        animClass,
         message.role === 'user' && 'ml-auto bg-primary text-primary-foreground',
-        message.role === 'assistant' && 'border border-emerald-200 bg-emerald-50 text-emerald-900',
-        message.role === 'system' && 'max-w-full border border-amber-200 bg-amber-50 text-amber-900',
-        message.role === 'admin' && 'border border-violet-200 bg-violet-50 text-violet-900',
+        message.role === 'assistant' && 'border border-border bg-card text-card-foreground',
+        message.role === 'system' && 'max-w-full border border-amber-500/20 bg-amber-500/5 text-amber-700 dark:text-amber-300',
+        message.role === 'admin' && 'border border-violet-500/20 bg-violet-500/5 text-violet-700 dark:text-violet-300',
       )}
     >
       <div className={cn(
         'mb-1 text-[11px] font-semibold uppercase',
         message.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground',
       )}>{message.role}</div>
-      <p className="whitespace-pre-wrap leading-6">{message.content}</p>
+      {message.role === 'user' ? (
+        <p className="whitespace-pre-wrap leading-6">{message.content}</p>
+      ) : (
+        <div className="prose prose-sm dark:prose-invert max-w-none leading-6 prose-headings:mb-2 prose-headings:mt-3 prose-p:my-1 prose-pre:my-2 prose-pre:rounded-lg prose-pre:bg-black/85 prose-pre:text-slate-100 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-code:rounded prose-code:bg-white/10 prose-code:px-1 prose-code:py-0.5 prose-code:text-inherit prose-code:before:content-none prose-code:after:content-none">
+          <Markdown>{message.content}</Markdown>
+        </div>
+      )}
     </article>
   )
 }
@@ -647,7 +732,7 @@ function TicketCard({
   return (
     <button
       className={cn(
-        'grid gap-2 rounded-xl border bg-card p-3 text-left text-card-foreground shadow-sm transition-all hover:bg-accent hover:shadow-md',
+        'grid gap-2 rounded-lg border bg-card p-3 text-left text-card-foreground transition-all hover:bg-accent',
         active && 'ring-2 ring-ring',
       )}
       onClick={onSelect}
@@ -787,7 +872,7 @@ function LogBlock({ title, icon, value }: { title: string; icon: ReactNode; valu
         {icon}
         {title}
       </h3>
-      <pre className="max-h-56 min-h-24 overflow-auto rounded-xl border bg-slate-950 p-3 text-xs leading-5 text-slate-100">
+      <pre className="max-h-56 min-h-24 overflow-auto rounded-xl border border-border bg-black/90 p-3 text-xs leading-5 text-slate-200">
         {value || '-'}
       </pre>
     </section>
@@ -812,10 +897,10 @@ function EmptyState({ text }: { text: string }) {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  completed: 'text-emerald-500',
-  failed: 'text-red-500',
-  in_progress: 'text-blue-500 animate-pulse-dot',
-  review_required: 'text-amber-500',
+  completed: 'text-green-400',
+  failed: 'text-red-400',
+  in_progress: 'text-indigo-400 animate-pulse-dot',
+  review_required: 'text-orange-400',
   queued: 'text-muted-foreground',
   pending: 'text-muted-foreground/50',
 }
@@ -842,18 +927,6 @@ function projectNameFromPath(repositoryPath: string | null) {
   if (!repositoryPath) return 'Default project'
   const cleanPath = repositoryPath.replace(/\/$/, '')
   return cleanPath.split('/').pop() || repositoryPath
-}
-
-function readSession(): Session | null {
-  const rawSession = window.localStorage.getItem(SESSION_KEY)
-  if (!rawSession) return null
-  try {
-    const parsedSession = JSON.parse(rawSession) as Session
-    if (parsedSession.role && parsedSession.name) return parsedSession
-  } catch {
-    window.localStorage.removeItem(SESSION_KEY)
-  }
-  return null
 }
 
 export default App

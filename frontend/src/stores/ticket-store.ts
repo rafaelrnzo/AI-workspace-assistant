@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { getAuthToken } from './auth-store'
 
 export type TicketType = 'request' | 'issue' | 'question'
 export type TicketComplexity = 'low' | 'medium' | 'hard'
@@ -69,14 +70,15 @@ interface TicketStore {
   deleteTicket: (id: string) => Promise<void>
 }
 
-const api = (path: string, init?: RequestInit) =>
-  fetch(`/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  }).then((r) => {
+const api = (path: string, init?: RequestInit) => {
+  const token = getAuthToken()
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  return fetch(`/api${path}`, { headers, ...init }).then((r) => {
     if (!r.ok) throw new Error(`${r.status}`)
     return r.json()
   })
+}
 
 export const useTicketStore = create<TicketStore>((set) => ({
   tickets: [],

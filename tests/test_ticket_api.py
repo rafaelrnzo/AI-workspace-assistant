@@ -24,7 +24,14 @@ async def _override_session():
         yield session
 
 
+from app.modules.auth import User, get_current_user
+
+async def _override_get_current_user():
+    return User(id="test-user-id", name="Test User", email="test@example.com", role="user")
+
+
 app.dependency_overrides[get_session] = _override_session
+app.dependency_overrides[get_current_user] = _override_get_current_user
 
 
 @pytest.fixture

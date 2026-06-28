@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
+from app.modules.auth import User, get_current_user
 from app.modules.ticket.repository.ticket_repository import TicketRepository
 from app.modules.ticket.schemas.ticket_schemas import (
     TicketActionRequest,
@@ -25,6 +26,7 @@ def _get_service(session: AsyncSession) -> TicketService:
 async def create_ticket(
     data: TicketCreate,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> TicketResponse:
     service = _get_service(session)
     ticket = await service.create_ticket(data)
@@ -40,6 +42,7 @@ async def create_ticket(
 @router.get("/", response_model=list[TicketResponse])
 async def list_tickets(
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> list[TicketResponse]:
     service = _get_service(session)
     tickets = await service.list_tickets()
@@ -50,6 +53,7 @@ async def list_tickets(
 async def get_ticket(
     ticket_id: str,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> TicketResponse:
     service = _get_service(session)
     ticket = await service.get_ticket(ticket_id)
@@ -61,6 +65,7 @@ async def update_ticket(
     ticket_id: str,
     data: TicketUpdate,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> TicketResponse:
     service = _get_service(session)
     ticket = await service.update_ticket(ticket_id, data)
@@ -76,6 +81,7 @@ async def add_message(
     ticket_id: str,
     data: TicketMessageCreate,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> TicketMessageResponse:
     service = _get_service(session)
     message = await service.add_message(ticket_id, data)
@@ -97,6 +103,7 @@ async def add_message(
 async def list_messages(
     ticket_id: str,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> list[TicketMessageResponse]:
     service = _get_service(session)
     messages = await service.list_messages(ticket_id)
@@ -108,6 +115,7 @@ async def approve_ticket(
     ticket_id: str,
     data: TicketActionRequest | None = None,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> TicketResponse:
     service = _get_service(session)
     ticket = await service.approve_ticket(ticket_id, actor=data.actor if data else None)
@@ -120,6 +128,7 @@ async def reject_ticket(
     ticket_id: str,
     data: TicketActionRequest | None = None,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> TicketResponse:
     service = _get_service(session)
     ticket = await service.reject_ticket(ticket_id, actor=data.actor if data else None)
@@ -130,6 +139,7 @@ async def reject_ticket(
 async def retry_ticket(
     ticket_id: str,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> TicketResponse:
     service = _get_service(session)
     ticket, action = await service.route_ticket(ticket_id)
@@ -144,6 +154,7 @@ async def retry_ticket(
 async def delete_ticket(
     ticket_id: str,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> TicketResponse:
     service = _get_service(session)
     ticket = await service.delete_ticket(ticket_id)

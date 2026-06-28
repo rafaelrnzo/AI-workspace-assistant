@@ -90,7 +90,6 @@ class TicketService:
                     "started_at": now,
                 },
             )
-            await self.add_system_message(ticket.id, "Question sent to the assistant.")
             return ticket, "question"
 
         if ticket.complexity == TicketComplexity.HARD.value:

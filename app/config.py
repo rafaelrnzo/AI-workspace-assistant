@@ -5,6 +5,8 @@ class Settings(BaseSettings):
     app_name: str = "AI Assistant Code"
     database_url: str = "sqlite+aiosqlite:///./app.db"
     debug: bool = False
+    jwt_secret: str = "change-me-in-production"
+    jwt_expire_days: int = 7
     repository_path: str = "."
     projects: str | None = None
     agent_execution_enabled: bool = False
